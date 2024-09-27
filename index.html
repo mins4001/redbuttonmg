@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>소통게시판</title>
+    <title>글을 남겨보세요!</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -13,7 +13,7 @@
             background-color: #fff0f0;
         }
         .container {
-            max-width: 1000px;
+            max-width: 800px;
             margin: auto;
             background: white;
             padding: 20px;
@@ -25,7 +25,7 @@
             color: #d32f2f;
         }
         #post-form, #search-sort, #edit-form {
-            margin-bottom: 90px;
+            margin-bottom: 20px;
         }
         input[type="text"], input[type="password"], textarea, select {
             width: 100%;
@@ -146,6 +146,7 @@
             font-size: 0.9em;
             color: #d32f2f;
             margin-left: 10px;
+            cursor: pointer;
         }
         .comment-count-header {
             font-weight: normal;
@@ -165,15 +166,60 @@
         .comment-actions button:hover {
             background-color: #ef9a9a;
         }
+        .comments-container {
+            display: none;
+        }
+        .comment-toggle {
+            cursor: pointer;
+        }
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            cursor: pointer;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.9);
+        }
+        .modal-content {
+            margin: auto;
+            display: block;
+            width: 80%;
+            max-width: 700px;
+        }
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .close:hover,
+        .close:focus {
+            color: #bbb;
+            text-decoration: none;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>레드버튼 미금역점 게시판</h1>
+        <h1>글을 남겨보세요!</h1>
         <form id="post-form">
             <input type="text" id="name" placeholder="이름" required>
             <input type="text" id="title" placeholder="제목" required>
             <textarea id="content" placeholder="내용" required></textarea>
+            <input type="file" id="image" accept="image/*">
+            <div id="image-preview"></div>
             <input type="password" id="password" placeholder="4자리 비밀번호" required pattern="\d{4}" maxlength="4">
             <button type="submit">글 작성</button>
         </form>
@@ -181,6 +227,8 @@
             <input type="hidden" id="edit-id">
             <input type="text" id="edit-title" placeholder="제목" required>
             <textarea id="edit-content" placeholder="내용" required></textarea>
+            <input type="file" id="edit-image" accept="image/*">
+            <div id="edit-image-preview"></div>
             <button type="submit">수정 완료</button>
             <button type="button" onclick="cancelEdit()">취소</button>
         </form>
@@ -203,18 +251,25 @@
         <div id="pagination"></div>
     </div>
 
+    <div id="imageModal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modalImage">
+    </div>
+
     <script>
         let posts = [];
         let currentPage = 1;
         const postsPerPage = 10;
+        const adminPassword = 'rbm7738@';
 
-        function addPost(name, title, content, password) {
+        function addPost(name, title, content, password, imageData) {
             const post = {
                 id: Date.now(),
                 name: name,
                 title: title,
                 content: content,
                 password: password,
+                imageData: imageData,
                 createdAt: new Date(),
                 isEdited: false,
                 comments: []
@@ -241,11 +296,14 @@
             }
         }
 
-        function editPost(id, newTitle, newContent) {
+        function editPost(id, newTitle, newContent, newImageData) {
             const post = posts.find(p => p.id === parseInt(id));
             if (post) {
                 post.title = newTitle;
                 post.content = newContent;
+                if (newImageData) {
+                    post.imageData = newImageData;
+                }
                 post.isEdited = true;
                 renderPosts();
                 savePostsToLocalStorage();
@@ -265,19 +323,29 @@
             }
         }
 
-        function deletePost(id) {
-            posts = posts.filter(p => p.id !== id);
-            renderPosts();
-            savePostsToLocalStorage();
-        }
-
-        function deleteComment(postId, commentId) {
-            const post = posts.find(p => p.id === postId);
-            if (post) {
-                post.comments = post.comments.filter(c => c.id !== commentId);
+        function deletePost(id, password) {
+            const post = posts.find(p => p.id === id);
+            if (post && (post.password === password || password === adminPassword)) {
+                posts = posts.filter(p => p.id !== id);
                 renderPosts();
                 savePostsToLocalStorage();
+                return true;
             }
+            return false;
+        }
+
+        function deleteComment(postId, commentId, password) {
+            const post = posts.find(p => p.id === postId);
+            if (post) {
+                const comment = post.comments.find(c => c.id === commentId);
+                if (comment && (comment.password === password || password === adminPassword)) {
+                    post.comments = post.comments.filter(c => c.id !== commentId);
+                    renderPosts();
+                    savePostsToLocalStorage();
+                    return true;
+                }
+            }
+            return false;
         }
 
         function escapeHtml(unsafe) {
@@ -314,29 +382,34 @@
                         </div>
                         <div class="post-content" id="content-${post.id}">
                             <p>${escapeHtml(post.content).replace(/\n/g, '<br>')}</p>
+                            ${post.imageData ? `<img src="${post.imageData}" alt="첨부 이미지" class="image-preview" onclick="openModal(this.src)">` : ''}
                             <div class="post-actions">
                                 <button onclick="showEditForm(${post.id})">수정</button>
                                 <button onclick="confirmDelete(${post.id})">삭제</button>
                             </div>
                             <div class="comment-section">
-                                <h4>댓글 <span class="comment-count">(${post.comments.length})</span></h4>
-                                ${post.comments.map(comment => `
-                                    <div class="comment" id="comment-${comment.id}">
-                                        <div class="comment-author">${escapeHtml(comment.name)}</div>
-                                        <div class="comment-content">${escapeHtml(comment.content).replace(/\n/g, '<br>')}</div>
-                                        <div class="comment-date">${comment.createdAt.toLocaleString('ko-KR')}${comment.isEdited ? ' (수정됨)' : ''}</div>
-                                        <div class="comment-actions">
-                                            <button onclick="showEditCommentForm(${post.id}, ${comment.id})">수정</button>
-                                            <button onclick="confirmDeleteComment(${post.id}, ${comment.id})">삭제</button>
+                                <h4 class="comment-toggle" onclick="toggleComments(${post.id})">
+                                    댓글 <span class="comment-count">(${post.comments.length})</span>
+                                </h4>
+                                <div class="comments-container" id="comments-${post.id}">
+                                    ${post.comments.map(comment => `
+                                        <div class="comment" id="comment-${comment.id}">
+                                            <div class="comment-author">${escapeHtml(comment.name)}</div>
+                                            <div class="comment-content">${escapeHtml(comment.content).replace(/\n/g, '<br>')}</div>
+                                            <div class="comment-date">${comment.createdAt.toLocaleString('ko-KR')}${comment.isEdited ? ' (수정됨)' : ''}</div>
+                                            <div class="comment-actions">
+                                                <button onclick="showEditCommentForm(${post.id}, ${comment.id})">수정</button>
+                                                <button onclick="confirmDeleteComment(${post.id}, ${comment.id})">삭제</button>
+                                            </div>
                                         </div>
-                                    </div>
-                                `).join('')}
-                                <form class="comment-form" onsubmit="submitComment(event, ${post.id})">
-                                    <input type="text" placeholder="이름" required>
-                                    <textarea placeholder="댓글 내용" required></textarea>
-                                    <input type="password" placeholder="비밀번호" required pattern="\\d{4}" maxlength="4">
-                                    <button type="submit">댓글 작성</button>
-                                </form>
+                                    `).join('')}
+                                    <form class="comment-form" onsubmit="submitComment(event, ${post.id})">
+                                        <input type="text" placeholder="이름" required>
+                                        <textarea placeholder="댓글 내용" required></textarea>
+                                        <input type="password" placeholder="비밀번호" required pattern="\\d{4}" maxlength="4">
+                                        <button type="submit">댓글 작성</button>
+                                    </form>
+                                </div>
                             </div>
                             <button class="close-button" onclick="closePost(${post.id})">닫기</button>
                         </div>
@@ -354,14 +427,33 @@
             allContents.forEach(content => {
                 if (content.id !== `content-${id}`) {
                     content.style.display = 'none';
+                    const commentsContainer = content.querySelector('.comments-container');
+                    if (commentsContainer) {
+                        commentsContainer.style.display = 'none';
+                    }
                 }
             });
             contentElement.style.display = contentElement.style.display === 'none' ? 'block' : 'none';
+            if (contentElement.style.display === 'none') {
+                const commentsContainer = contentElement.querySelector('.comments-container');
+                if (commentsContainer) {
+                    commentsContainer.style.display = 'none';
+                }
+            }
+        }
+
+        function toggleComments(postId) {
+            const commentsContainer = document.getElementById(`comments-${postId}`);
+            commentsContainer.style.display = commentsContainer.style.display === 'none' ? 'block' : 'none';
         }
 
         function closePost(id) {
             const contentElement = document.getElementById(`content-${id}`);
             contentElement.style.display = 'none';
+            const commentsContainer = contentElement.querySelector('.comments-container');
+            if (commentsContainer) {
+                commentsContainer.style.display = 'none';
+            }
         }
 
         function submitComment(event, postId) {
@@ -372,6 +464,7 @@
             const password = form.querySelector('input[type="password"]').value;
             addComment(postId, name, content, password);
             form.reset();
+            document.getElementById(`comments-${postId}`).style.display = 'block';
             document.getElementById(`content-${postId}`).style.display = 'block';
         }
 
@@ -428,12 +521,17 @@
             const post = posts.find(p => p.id === id);
             if (post) {
                 const password = prompt('비밀번호를 입력하세요:');
-                if (password === post.password) {
+                if (password === post.password || password === adminPassword) {
                     document.getElementById('post-form').style.display = 'none';
                     document.getElementById('edit-form').style.display = 'block';
                     document.getElementById('edit-id').value = post.id;
                     document.getElementById('edit-title').value = post.title;
                     document.getElementById('edit-content').value = post.content;
+                    if (post.imageData) {
+                        document.getElementById('edit-image-preview').innerHTML = `<img src="${post.imageData}" alt="첨부 이미지" class="image-preview">`;
+                    } else {
+                        document.getElementById('edit-image-preview').innerHTML = '';
+                    }
                     window.scrollTo(0, 0);
                 } else {
                     alert('비밀번호가 일치하지 않습니다.');
@@ -445,7 +543,7 @@
             const post = posts.find(p => p.id === postId);
             const comment = post.comments.find(c => c.id === commentId);
             const password = prompt('댓글 비밀번호를 입력하세요:');
-            if (password === comment.password) {
+            if (password === comment.password || password === adminPassword) {
                 const newContent = prompt('새로운 댓글 내용을 입력하세요:', comment.content);
                 if (newContent !== null && newContent.trim() !== '') {
                     editComment(postId, commentId, newContent);
@@ -461,27 +559,18 @@
         }
 
         function confirmDelete(id) {
-            const post = posts.find(p => p.id === id);
-            if (post) {
-                const password = prompt('삭제하려면 비밀번호를 입력하세요:');
-                if (password === post.password) {
-                    if (confirm('정말로 이 글을 삭제하시겠습니까?')) {
-                        deletePost(id);
-                    }
-                } else {
-                    alert('비밀번호가 일치하지 않습니다.');
-                }
+            const password = prompt('삭제하려면 비밀번호를 입력하세요:');
+            if (deletePost(id, password)) {
+                alert('글이 삭제되었습니다.');
+            } else {
+                alert('비밀번호가 일치하지 않습니다.');
             }
         }
 
         function confirmDeleteComment(postId, commentId) {
-            const post = posts.find(p => p.id === postId);
-            const comment = post.comments.find(c => c.id === commentId);
             const password = prompt('댓글을 삭제하려면 비밀번호를 입력하세요:');
-            if (password === comment.password) {
-                if (confirm('정말로 이 댓글을 삭제하시겠습니까?')) {
-                    deleteComment(postId, commentId);
-                }
+            if (deleteComment(postId, commentId, password)) {
+                alert('댓글이 삭제되었습니다.');
             } else {
                 alert('비밀번호가 일치하지 않습니다.');
             }
@@ -504,22 +593,50 @@
             }
         }
 
+        function handleImageUpload(event, previewId) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById(previewId).innerHTML = `<img src="${e.target.result}" alt="이미지 미리보기" class="image-preview">`;
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function openModal(src) {
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            modal.style.display = 'block';
+            modalImg.src = src;
+        }
+
+        document.querySelector('.close').onclick = function() {
+            document.getElementById('imageModal').style.display = 'none';
+        }
+
+        document.getElementById('image').addEventListener('change', (e) => handleImageUpload(e, 'image-preview'));
+        document.getElementById('edit-image').addEventListener('change', (e) => handleImageUpload(e, 'edit-image-preview'));
+
         document.getElementById('post-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const nameInput = document.getElementById('name');
             const titleInput = document.getElementById('title');
             const contentInput = document.getElementById('content');
             const passwordInput = document.getElementById('password');
+            const imagePreview = document.getElementById('image-preview').querySelector('img');
             const name = nameInput.value.trim();
             const title = titleInput.value.trim();
             const content = contentInput.value.trim();
             const password = passwordInput.value;
+            const imageData = imagePreview ? imagePreview.src : null;
             if (name && title && content && password.length === 4) {
-                addPost(name, title, content, password);
+                addPost(name, title, content, password, imageData);
                 nameInput.value = '';
                 titleInput.value = '';
                 contentInput.value = '';
                 passwordInput.value = '';
+                document.getElementById('image-preview').innerHTML = '';
             } else {
                 alert('이름, 제목, 내용을 모두 입력하고 4자리 비밀번호를 설정해주세요.');
             }
@@ -530,8 +647,10 @@
             const id = document.getElementById('edit-id').value;
             const title = document.getElementById('edit-title').value.trim();
             const content = document.getElementById('edit-content').value.trim();
+            const imagePreview = document.getElementById('edit-image-preview').querySelector('img');
+            const imageData = imagePreview ? imagePreview.src : null;
             if (title && content) {
-                editPost(id, title, content);
+                editPost(id, title, content, imageData);
                 document.getElementById('post-form').style.display = 'block';
                 document.getElementById('edit-form').style.display = 'none';
             } else {

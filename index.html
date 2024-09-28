@@ -421,7 +421,7 @@
             });
         });
 
-       // 게시글 폼 표시
+        // 게시글 폼 표시
         function showPostForm() {
             document.getElementById('post-form').style.display = 'block';
             document.getElementById('post-form').scrollIntoView({ behavior: 'smooth' });
@@ -725,7 +725,7 @@
             }
         }
 
-       // 사진 삭제
+        // 사진 삭제
         function deleteFile(postId, category) {
             const post = posts[category].find(p => p.id === postId);
             const password = prompt('비밀번호를 입력하세요:', '');
@@ -813,34 +813,7 @@
                 if (filteredPosts.length > 0) {
                     foundResults = true;
                     sectionContent.style.display = 'block';
-                    const postsContainer = document.getElementById(`${category}-posts`);
-                    postsContainer.innerHTML = '';
-                    const now = new Date();
-                    filteredPosts.forEach(post => {
-                        const postElement = document.createElement('div');
-                        postElement.className = 'post';
-                        const isNew = (now - post.date) / (1000 * 60 * 60) <= 24;
-                        postElement.innerHTML = `
-                            <div class="post-title ${isNew ? 'new-post' : ''}" onclick="togglePost(${post.id}, '${category}')">${post.title} [${post.comments.length}]</div>
-                            <div class="post-info"><strong>${post.name}</strong> | ${post.date.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
-                            <div class="post-content" id="post-content-${post.id}">
-                                <p>${nl2br(post.content)}</p>
-                                ${post.file ? `
-                                    <p>첨부파일: <a href="${post.file}" download>다운로드</a></p>
-                                    <img src="${post.file}" alt="첨부 이미지" class="file-preview">
-                                    <button onclick="deleteFile(${post.id}, '${category}')">사진 삭제</button>
-                                ` : ''}
-                                <button onclick="showEditForm(${post.id}, '${category}')">수정</button>
-                                <button onclick="deletePost(${post.id}, '${category}')">삭제</button>
-                                <button onclick="deletePostAsAdmin(${post.id}, '${category}')">관리자 삭제</button>
-                                <h4>댓글 (${post.comments.length})</h4>
-                                <div id="comments-${post.id}"></div>
-                                <button class="comment-button" onclick="showCommentForm(${post.id}, '${category}')">댓글 작성</button>
-                            </div>
-                        `;
-                        postsContainer.appendChild(postElement);
-                        renderComments(post);
-                    });
+                    renderFilteredPosts(category, filteredPosts);
                     sectionContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 } else {
                     sectionContent.style.display = 'none';
@@ -851,6 +824,38 @@
                 alert('검색 결과가 없습니다.');
                 closeAllSections();
             }
+        }
+
+        // 필터링된 게시글 렌더링
+        function renderFilteredPosts(category, filteredPosts) {
+            const postsContainer = document.getElementById(`${category}-posts`);
+            postsContainer.innerHTML = '';
+            const now = new Date();
+            filteredPosts.forEach(post => {
+                const postElement = document.createElement('div');
+                postElement.className = 'post';
+                const isNew = (now - post.date) / (1000 * 60 * 60) <= 24;
+                postElement.innerHTML = `
+                    <div class="post-title ${isNew ? 'new-post' : ''}" onclick="togglePost(${post.id}, '${category}')">${post.title} [${post.comments.length}]</div>
+                    <div class="post-info"><strong>${post.name}</strong> | ${post.date.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+                    <div class="post-content" id="post-content-${post.id}">
+                        <p>${nl2br(post.content)}</p>
+                        ${post.file ? `
+                            <p>첨부파일: <a href="${post.file}" download>다운로드</a></p>
+                            <img src="${post.file}" alt="첨부 이미지" class="file-preview">
+                            <button onclick="deleteFile(${post.id}, '${category}')">사진 삭제</button>
+                        ` : ''}
+                        <button onclick="showEditForm(${post.id}, '${category}')">수정</button>
+                        <button onclick="deletePost(${post.id}, '${category}')">삭제</button>
+                        <button onclick="deletePostAsAdmin(${post.id}, '${category}')">관리자 삭제</button>
+                        <h4>댓글 (${post.comments.length})</h4>
+                        <div id="comments-${post.id}"></div>
+                        <button class="comment-button" onclick="showCommentForm(${post.id}, '${category}')">댓글 작성</button>
+                    </div>
+                `;
+                postsContainer.appendChild(postElement);
+                renderComments(post);
+            });
         }
 
         // 엔터키로 검색

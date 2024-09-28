@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>레드버튼 미금역점</title>
+    <title>소통게시판</title>
     <style>
         /* 전체 페이지 스타일 */
         body {
@@ -382,6 +382,11 @@
             qna: 1
         };
 
+        // 줄바꿈을 <br> 태그로 변환하는 함수
+        function nl2br(str) {
+            return str.replace(/\n/g, "<br>");
+        }
+
         // 로컬 스토리지에서 데이터 불러오기
         function loadFromLocalStorage() {
             const savedPosts = localStorage.getItem('posts');
@@ -416,7 +421,7 @@
             });
         });
 
-        // 게시글 폼 표시
+       // 게시글 폼 표시
         function showPostForm() {
             document.getElementById('post-form').style.display = 'block';
             document.getElementById('post-form').scrollIntoView({ behavior: 'smooth' });
@@ -490,11 +495,11 @@
                     <div class="post-title ${isNew ? 'new-post' : ''}" onclick="togglePost(${post.id}, '${category}')">${post.title} [${post.comments.length}]</div>
                     <div class="post-info"><strong>${post.name}</strong> | ${post.date.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
                     <div class="post-content" id="post-content-${post.id}">
-                        <p>${post.content}</p>
+                        <p>${nl2br(post.content)}</p>
                         ${post.file ? `
                             <p>첨부파일: <a href="${post.file}" download>다운로드</a></p>
                             <img src="${post.file}" alt="첨부 이미지" class="file-preview">
-                            <button onclick="deleteFile(${post.id}, '${category}')">첨부파일 삭제</button>
+                            <button onclick="deleteFile(${post.id}, '${category}')">사진 삭제</button>
                         ` : ''}
                         <button onclick="showEditForm(${post.id}, '${category}')">수정</button>
                         <button onclick="deletePost(${post.id}, '${category}')">삭제</button>
@@ -565,7 +570,7 @@
                 const commentElement = document.createElement('div');
                 commentElement.className = 'comment';
                 commentElement.innerHTML = `
-                    <p>${comment.content}</p>
+                    <p>${nl2br(comment.content)}</p>
                     <p><strong>${comment.name}</strong> | ${comment.date.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
                     <button onclick="editComment(${post.id}, ${comment.id})">수정</button>
                     <button onclick="deleteComment(${post.id}, ${comment.id})">삭제</button>
@@ -720,7 +725,7 @@
             }
         }
 
-        // 사진 삭제
+       // 사진 삭제
         function deleteFile(postId, category) {
             const post = posts[category].find(p => p.id === postId);
             const password = prompt('비밀번호를 입력하세요:', '');
@@ -819,11 +824,11 @@
                             <div class="post-title ${isNew ? 'new-post' : ''}" onclick="togglePost(${post.id}, '${category}')">${post.title} [${post.comments.length}]</div>
                             <div class="post-info"><strong>${post.name}</strong> | ${post.date.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
                             <div class="post-content" id="post-content-${post.id}">
-                                <p>${post.content}</p>
+                                <p>${nl2br(post.content)}</p>
                                 ${post.file ? `
                                     <p>첨부파일: <a href="${post.file}" download>다운로드</a></p>
                                     <img src="${post.file}" alt="첨부 이미지" class="file-preview">
-                                    <button onclick="deleteFile(${post.id}, '${category}')">첨부파일 삭제</button>
+                                    <button onclick="deleteFile(${post.id}, '${category}')">사진 삭제</button>
                                 ` : ''}
                                 <button onclick="showEditForm(${post.id}, '${category}')">수정</button>
                                 <button onclick="deletePost(${post.id}, '${category}')">삭제</button>
